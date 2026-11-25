@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://connect.facebook.net; connect-src https://graph.facebook.com https://*.facebook.com; frame-src https://www.facebook.com https://web.facebook.com https://*.facebook.com; img-src 'self' data: https://*.fbcdn.net https://*.facebook.com https://platform-lookaside.fbsbx.com; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Comment Draw</title>
+<style>
+/* Layout: single centered column of steps (connect → choose post → rules → draw); the result opens in a full-screen reveal frame. */
+:root {
+  --bg: #eef1f6; --surface: #ffffff; --sunken: #e3e8f0; --ink: #141c33; --muted: #5a6582; --line: #cfd6e3;
+  --accent: #f2b311; --accent-ink: #2a1f00; --brand: #1f3a8a; --fb: #1877f2; --good: #1d7a4a; --bad: #b3261e;
+  --stage: #0b1020; --stage-ink: #f5f7fb;
+  --display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, Consolas, "Cascadia Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0d1222; --surface: #161d33; --sunken: #0f1529; --ink: #e8ecf6; --muted: #9aa5c2; --line: #2a3452;
+    --accent: #f5c12e; --brand: #8fb0ff; --good: #5fd09a; --bad: #ff8a80; --stage: #05080f; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 720px; margin: 0 auto; padding-block: 36px 64px; display: flex; flex-direction: column; gap: 18px; }
+h1, h2 { font-family: var(--display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h1 { font-size: clamp(30px, 5vw, 42px); font-weight: 800; line-height: 1.05; }
+h2 { font-size: 18px; display: flex; gap: 10px; align-items: center; }
+h2 .n { font-family: var(--mono); font-size: 12px; width: 26px; height: 26px; border-radius: 50%; border: 1.5px dashed var(--line); display: grid; place-items: center; color: var(--muted); flex: none; }
+.lead { color: var(--muted); margin: 8px 0 0; max-width: 60ch; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card.locked { opacity: .55; pointer-events: none; }
+label, .lbl { font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px; }
+.hint { font-size: 12.5px; color: var(--muted); margin: 4px 0 0; }
+input[type="text"], input[type="number"], input[type="url"], select {
+  width: 100%; font: inherit; color: var(--ink); background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+input:focus, select:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.chk { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.chk input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--brand); }
+.chk small { display: block; color: var(--muted); font-size: 12.5px; }
+button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 9px 14px; font-weight: 600; font-size: 14px; }
+button:hover { border-color: var(--brand); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.link { border: 0; background: none; padding: 0; color: var(--brand); text-decoration: underline; font-size: 13px; }
+.fb-btn { background: var(--fb); color: #fff; border: 0; padding: 12px 20px; font-size: 15px; }
+.go { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 999px; font-family: var(--display); font-weight: 800; font-size: 19px; padding: 14px 34px; align-self: flex-start; box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 55%, #000); }
+.who { display: flex; gap: 12px; align-items: center; background: var(--sunken); border-radius: 10px; padding: 10px 12px; }
+.who img { width: 36px; height: 36px; border-radius: 50%; }
+.status { font-size: 14px; padding: 10px 12px; border-radius: 10px; background: var(--sunken); }
+.status.err { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, var(--surface)); }
+.status.ok { color: var(--good); }
+.shield { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; }
+.shield b { color: var(--ink); }
+.shield ul { margin: 0; padding-left: 18px; }
+details summary { cursor: pointer; font-weight: 600; }
+details ol { padding-left: 20px; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+code { font-family: var(--mono); font-size: 12.5px; background: var(--sunken); border-radius: 4px; padding: 1px 5px; overflow-wrap: anywhere; }
+
+.posts { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow: auto; }
+.post { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: center; text-align: left; padding: 8px; border-radius: 10px; }
+.post img, .post .noimg { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; background: var(--sunken); }
+.post b { display: block; font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.post span { font-size: 12px; color: var(--muted); }
+.post.sel { border: 2px solid var(--accent); }
+
+/* reveal frame */
+.reveal { position: fixed; inset: 0; z-index: 50; background: var(--stage); color: var(--stage-ink); display: flex; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); overflow: auto; }
+.reveal canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.rv { position: relative; width: min(560px, 100%); display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.rv .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: color-mix(in srgb, var(--stage-ink) 60%, transparent); }
+.count { font-family: var(--display); font-weight: 800; font-size: clamp(90px, 22vw, 170px); line-height: 1; color: var(--accent); }
+.avatar { width: 150px; height: 150px; border-radius: 50%; border: 5px solid var(--accent); object-fit: cover; background: #1d2747; display: grid; place-items: center; font-family: var(--display); font-size: 56px; font-weight: 800; color: var(--accent); }
+.wname { font-family: var(--display); font-weight: 800; font-size: clamp(30px, 6vw, 46px); line-height: 1.1; overflow-wrap: anywhere; }
+.wtext { font-size: 16px; color: color-mix(in srgb, var(--stage-ink) 80%, transparent); max-width: 46ch; overflow-wrap: anywhere; }
+.rv .row { justify-content: center; }
+.rv button, .rv a.btn { background: #1d2747; color: var(--stage-ink); border: 1px solid #2a3452; text-decoration: none; padding: 9px 14px; border-radius: 10px; font-weight: 600; font-size: 14px; }
+.rv a.btn.primary { background: var(--accent); color: var(--accent-ink); border: 0; }
+.backups { font-size: 14px; color: color-mix(in srgb, var(--stage-ink) 75%, transparent); }
+.record { font-family: var(--mono); font-size: 11.5px; color: color-mix(in srgb, var(--stage-ink) 55%, transparent); white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; background: rgba(255,255,255,.04); border-radius: 10px; padding: 10px 12px; width: 100%; }
+@media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Comment Draw</h1>
+    <p class="lead">Paste the link of a post from your Facebook Page. All comments are collected quietly and one random winner is revealed. The comment list is never shown.</p>
+  </header>
+
+  <!-- 0. one-time setup -->
+  <section class="card" id="setupCard" hidden>
+    <h2><span class="n">0</span>One-time setup</h2>
+    <p class="hint" style="margin:0">Facebook only lets apps read comments after you log in through an app you own. Create a free app once (about 10 minutes), then paste its App ID here. Full steps are in the README file next to this page.</p>
+    <div>
+      <label for="appId">Facebook App ID</label>
+      <input id="appId" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 1234567890123456">
+    </div>
+    <div>
+      <label for="configId">Login configuration ID (only for "Facebook Login for Business")</label>
+      <input id="configId" type="text" inputmode="numeric" autocomplete="off" placeholder="leave empty if you don't have one">
+    </div>
+    <button type="button" id="saveApp">Save and continue</button>
+  </section>
+
+  <!-- 1. connect -->
+  <section class="card" id="loginCard">
+    <h2><span class="n">1</span>Connect your Page</h2>
+    <div id="loggedOut" class="row">
+      <button type="button" class="fb-btn" id="loginBtn">Continue with Facebook</button>
+      <button type="button" class="link" id="changeApp">Change App ID</button>
+    </div>
+    <div id="loggedIn" hidden style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label for="pageSel">Page</label>
+        <select id="pageSel"></select>
+      </div>
+      <p class="hint" style="margin:0">Your Page isn't in the list? Facebook only shows the Pages you ticked when you connected.</p>
+      <div class="row">
+        <button type="button" id="morePagesBtn">Add or change Pages</button>
+        <button type="button" class="link" id="logoutBtn">Log out</button>
+      </div>
+    </div>
+    <div class="status" id="loginStatus" hidden></div>
+  </section>
+
+  <!-- 2. post -->
+  <section class="card locked" id="postCard">
+    <h2><span class="n">2</span>Choose the post</h2>
+    <div>
+      <label for="postLink">Paste the post link</label>
+      <input id="postLink" type="url" autocomplete="off" placeholder="https://www.facebook.com/…">
+      <p class="hint">Short share links (facebook.com/share/…) can't be decoded by Facebook's API. If yours isn't found, pick the post from your recent posts.</p>
+    </div>
+    <div class="row">
+      <button type="button" id="findBtn">Find post</button>
+      <button type="button" class="link" id="browseBtn">Pick from my recent posts</button>
+    </div>
+    <div class="posts" id="posts" hidden></div>
+    <div class="status" id="postStatus" hidden></div>
+  </section>
+
+  <!-- 3. rules + draw -->
+  <section class="card locked" id="drawCard">
+    <h2><span class="n">3</span>Rules and draw</h2>
+    <div class="grid2">
+      <div><label for="nWin">Winners</label><input id="nWin" type="number" min="1" max="50" value="1"></div>
+      <div><label for="nBack">Backup winners</label><input id="nBack" type="number" min="0" max="20" value="1"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="unique" checked><span>One entry per person<small>Someone who commented 5 times still gets one chance.</small></span></label>
+    <label class="chk"><input type="checkbox" id="replies"><span>Count replies too<small>Off: only main comments count.</small></span></label>
+    <label class="chk"><input type="checkbox" id="noPage" checked><span>Leave out the Page's own comments</span></label>
+    <div>
+      <label for="kw">Comment must contain (optional)</label>
+      <input id="kw" type="text" placeholder="e.g. #giveaway, done">
+      <p class="hint">Separate with commas. A comment that contains any of them counts.</p>
+    </div>
+    <div>
+      <label for="excl">Exclude these names (optional)</label>
+      <input id="excl" type="text" placeholder="e.g. staff members">
+    </div>
+    <button type="button" class="go" id="drawBtn">Pick the winner</button>
+    <div class="status" id="drawStatus" hidden></div>
+  </section>
+
+  <aside class="shield">
+    <b>How this page keeps you safe</b>
+    <ul>
+      <li>It only asks Facebook for read-only access. It can't post, comment, message or change anything.</li>
+      <li>Your login key stays in this tab's memory. It is never saved, and closing the tab or pressing "Log out" removes it.</li>
+      <li>It runs on your own computer (localhost) and can only talk to Facebook. No other website, tracker or server is involved.</li>
+      <li>The winner is picked with your browser's cryptographic random generator.</li>
+      <li>To remove the app's access at any time: Facebook → Settings → Business integrations.</li>
+    </ul>
+    <a href="privacy.html">Privacy policy and data deletion</a>
+  </aside>
+</div>
+
+<div class="reveal" id="reveal" hidden>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+  <div class="rv" id="rv"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
